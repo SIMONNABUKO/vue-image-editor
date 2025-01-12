@@ -1,4 +1,3 @@
-const readmeContent = `
 # Vue Image Editor
 
 A comprehensive and customizable image editor component for Vue.js applications. This package provides a powerful set of tools for editing images directly in the browser, including blur, pixelate, text overlay, and emoji placement features.
@@ -17,15 +16,15 @@ A comprehensive and customizable image editor component for Vue.js applications.
 
 You can install the Vue Image Editor package using npm:
 
-\`\`\`bash
+```bash
 npm install vue-image-editor
-\`\`\`
+```
 
 Or using yarn:
 
-\`\`\`bash
+```bash
 yarn add vue-image-editor
-\`\`\`
+```
 
 ## Usage
 
@@ -33,7 +32,7 @@ yarn add vue-image-editor
 
 First, import and register the component in your Vue.js application:
 
-\`\`\`javascript
+```javascript
 import { createApp } from 'vue'
 import App from './App.vue'
 import VueImageEditor from 'vue-image-editor'
@@ -41,11 +40,11 @@ import VueImageEditor from 'vue-image-editor'
 const app = createApp(App)
 app.use(VueImageEditor)
 app.mount('#app')
-\`\`\`
+```
 
 Then, you can use the component in your Vue template:
 
-\`\`\`vue
+```vue
 <template>
   <div>
     <button @click="openEditor">Edit Image</button>
@@ -80,17 +79,17 @@ export default {
   }
 }
 </script>
-\`\`\`
+```
 
 ### Props
 
-The \`vue-image-editor\` component accepts the following props:
+The `vue-image-editor` component accepts the following props:
 
 | Prop | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| \`isOpen\` | Boolean | Yes | - | Controls the visibility of the editor |
-| \`imageUrl\` | String | Yes | - | URL of the image to be edited |
-| \`tools\` | Array | No | All tools | Array of tool objects to customize the toolbar |
+| `isOpen` | Boolean | Yes | - | Controls the visibility of the editor |
+| `imageUrl` | String | Yes | - | URL of the image to be edited |
+| `tools` | Array | No | All tools | Array of tool objects to customize the toolbar |
 
 ### Events
 
@@ -98,8 +97,8 @@ The component emits the following events:
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| \`close\` | None | Emitted when the editor is closed |
-| \`save\` | \`editedImageData\` (String) | Emitted when changes are applied, with the edited image data as payload |
+| `close` | None | Emitted when the editor is closed |
+| `save` | `editedImageData` (String) | Emitted when changes are applied, with the edited image data as payload |
 
 ### Available Tools
 
@@ -112,9 +111,9 @@ The Vue Image Editor comes with the following tools:
 
 ### Customizing the Toolbar
 
-You can customize the toolbar by passing a \`tools\` prop to the component:
+You can customize the toolbar by passing a `tools` prop to the component:
 
-\`\`\`vue
+```vue
 <template>
   <vue-image-editor
     :is-open="isEditorOpen"
@@ -151,7 +150,7 @@ export default {
   }
 }
 </script>
-\`\`\`
+```
 
 ### Using Specific Tools
 
@@ -185,9 +184,9 @@ To add emojis to the image:
 
 ### Handling the Edited Image
 
-When the user saves their changes, the \`save\` event is emitted with the edited image data as a base64-encoded string. You can handle this data as follows:
+When the user saves their changes, the `save` event is emitted with the edited image data as a base64-encoded string. You can handle this data as follows:
 
-\`\`\`vue
+```vue
 <template>
   <vue-image-editor
     :is-open="isEditorOpen"
@@ -227,23 +226,23 @@ export default {
   }
 }
 </script>
-\`\`\`
+```
 
 ### Styling
 
-The Vue Image Editor component uses scoped styles, so it won't interfere with your existing styles. However, you can override some styles by targeting the \`.image-editor\` class:
+The Vue Image Editor component uses scoped styles, so it won't interfere with your existing styles. However, you can override some styles by targeting the `.image-editor` class:
 
-\`\`\`css
+```css
 .image-editor {
   /* Your custom styles here */
 }
-\`\`\`
+```
 
 ## Examples
 
 ### Basic Usage
 
-\`\`\`vue
+```vue
 <template>
   <div>
     <img :src="currentImage" alt="Edited Image" />
@@ -280,11 +279,11 @@ export default {
   }
 }
 </script>
-\`\`\`
+```
 
 ### With Custom Toolbar and Styling
 
-\`\`\`vue
+```vue
 <template>
   <div>
     <img :src="currentImage" alt="Edited Image" />
@@ -334,27 +333,27 @@ export default {
   --editor-text-color: #ecf0f1;
 }
 </style>
-\`\`\`
+```
 
 ## Troubleshooting
 
 ### Image Not Loading
 
 If the image doesn't load, ensure that:
-1. The \`imageUrl\` prop is correct and accessible.
+1. The `imageUrl` prop is correct and accessible.
 2. You're not facing any CORS (Cross-Origin Resource Sharing) issues. You might need to configure your server to allow cross-origin requests.
 
 ### Editor Not Opening
 
 If the editor doesn't open, check that:
-1. The \`isOpen\` prop is correctly toggled in your parent component.
+1. The `isOpen` prop is correctly toggled in your parent component.
 2. There are no console errors indicating missing dependencies or incorrect usage.
 
 ### Saving Issues
 
 If you're having trouble saving the edited image:
 1. Check the browser console for any error messages.
-2. Ensure that the \`save\` event is correctly handled in your parent component.
+2. Ensure that the `save` event is correctly handled in your parent component.
 3. Verify that you have sufficient storage space if you're saving the image locally.
 
 ## Contributing
@@ -371,7 +370,4 @@ If you encounter any problems or have any questions, please open an issue on the
 
 ---
 
-Made with ❤️ by [Your Name/Organization]
-`;
-
-console.log(readmeContent);
+Made with ❤️ by Simon Angatia
