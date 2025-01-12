@@ -1,27 +1,33 @@
 <template>
-  <div v-if="isOpen" class="vue-image-editor">
-    <div class="editor-container">
-      <div class="toolbar">
-        <button
-          v-for="tool in availableTools"
-          :key="tool.name"
-          @click="selectTool(tool.name)"
-          :class="{ active: currentTool === tool.name }"
-        >
-          {{ tool.label }}
-        </button>
-      </div>
-      <div class="canvas-container" ref="canvasContainer">
-        <canvas
-          ref="canvas"
-          @mousedown="startDrawing"
-          @mousemove="draw"
-          @mouseup="stopDrawing"
-          @mouseleave="stopDrawing"
-          @touchstart="startDrawing"
-          @touchmove="draw"
-          @touchend="stopDrawing"
-        ></canvas>
+  <vue-final-modal
+    :modelValue="isOpen"
+    @update:modelValue="$emit('update:isOpen', $event)"
+    classes="modal-container"
+    content-class="modal-content"
+  >
+    <div class="vue-image-editor">
+      <div class="editor-container">
+        <div class="toolbar">
+          <button
+            v-for="tool in availableTools"
+            :key="tool.name"
+            @click="selectTool(tool.name)"
+            :class="{ active: currentTool === tool.name }"
+          >
+            {{ tool.label }}
+          </button>
+        </div>
+        <div class="canvas-container" ref="canvasContainer">
+          <canvas
+            ref="canvas"
+            @mousedown="startDrawing"
+            @mousemove="draw"
+            @mouseup="stopDrawing"
+            @mouseleave="stopDrawing"
+            @touchstart="startDrawing"
+            @touchmove="draw"
+            @touchend="stopDrawing"
+          ></canvas>
         <div
           v-if="showBlurFrame"
           ref="blurFrame"
@@ -64,43 +70,46 @@
           {{ emojiItem.emoji }}
           <button @click="deleteEmoji(index)" class="delete-button">Delete</button>
         </div>
-      </div>
-      <div class="tool-options" v-if="showToolOptions">
-        <div v-if="currentTool === 'text'">
-          <input v-model="textInput" placeholder="Enter text" />
-          <input v-model="textColor" type="color" />
-          <input v-model="textSize" type="range" min="12" max="72" />
-          <button @click="addText">Add Text</button>
         </div>
-        <div v-if="currentTool === 'emoji'">
-          <EmojiPicker @select="addEmoji" />
+        <div class="tool-options" v-if="showToolOptions">
+          <div v-if="currentTool === 'text'">
+            <input v-model="textInput" placeholder="Enter text" />
+            <input v-model="textColor" type="color" />
+            <input v-model="textSize" type="range" min="12" max="72" />
+            <button @click="addText">Add Text</button>
+          </div>
+          <div v-if="currentTool === 'emoji'">
+            <EmojiPicker @select="addEmoji" />
+          </div>
+          <div v-if="currentTool === 'blur' || currentTool === 'pixelate'">
+            <input
+              v-model="effectIntensity"
+              type="range"
+              :min="currentTool === 'pixelate' ? 1 : 1"
+              :max="currentTool === 'pixelate' ? 20 : 20"
+              @input="applyEffect"
+            />
+          </div>
         </div>
-        <div v-if="currentTool === 'blur' || currentTool === 'pixelate'">
-          <input
-            v-model="effectIntensity"
-            type="range"
-            :min="currentTool === 'pixelate' ? 1 : 1"
-            :max="currentTool === 'pixelate' ? 20 : 20"
-            @input="applyEffect"
-          />
+        <div class="actions">
+          <button @click="handleClose">Cancel</button>
+          <button @click="handleSave">Save</button>
         </div>
-      </div>
-      <div class="actions">
-        <button @click="handleClose">Cancel</button>
-        <button @click="handleSave">Save</button>
       </div>
     </div>
-  </div>
+  </vue-final-modal>
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue'
+import { VueFinalModal } from 'vue-final-modal'
 import EmojiPicker from './EmojiPicker.vue';
 import { initCanvas, applyBlurEffect, applyPixelateEffect, getResizeHandles, handleResize } from '../utils/imageEditorUtils';
 
 export default {
   name: 'VueImageEditor',
   components: {
+    VueFinalModal,
     EmojiPicker,
   },
   props: {
@@ -117,7 +126,7 @@ export default {
       default: () => ['blur', 'pixelate', 'text', 'emoji'],
     },
   },
-  emits: ['close', 'save'],
+  emits: ['update:isOpen', 'save'],
   setup(props, { emit }) {
     const canvas = ref(null);
     const ctx = ref(null);
@@ -177,6 +186,11 @@ export default {
 
     const initCanvas = async () => {
       ctx.value = await initCanvas(canvas.value, canvasContainer.value, props.imageUrl);
+      originalImage.value = await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.src = props.imageUrl;
+      });
     };
 
     const selectTool = (tool) => {
@@ -209,6 +223,9 @@ export default {
 
     const stopDrawing = () => {
       isDrawing.value = false;
+      if (currentTool.value === 'blur' || currentTool.value === 'pixelate') {
+        applyEffect();
+      }
     };
 
     const startFrameDrag = (event) => {
@@ -232,6 +249,7 @@ export default {
 
     const stopFrameDrag = () => {
       isDragging.value = false;
+      applyEffect();
     };
 
     const startResize = (handle) => {
@@ -254,6 +272,7 @@ export default {
     const stopResize = () => {
       isResizing.value = false;
       currentResizeHandle.value = null;
+      applyEffect();
     };
 
     const applyEffect = () => {
@@ -262,7 +281,7 @@ export default {
       if (currentTool.value === 'blur') {
         applyBlurEffect(ctx.value, canvas.value, framePosition.value, frameSize.value, effectIntensity.value);
       } else if (currentTool.value === 'pixelate') {
-        applyPixelateEffect(ctx.value, framePosition.value, frameSize.value, effectIntensity.value);
+        applyPixelateEffect(ctx.value, canvas.value, framePosition.value, frameSize.value, effectIntensity.value);
       }
     };
 
@@ -274,6 +293,7 @@ export default {
           y: 50,
           color: textColor.value,
           size: textSize.value,
+          isDragging: false,
         });
         textInput.value = '';
       }
@@ -319,6 +339,7 @@ export default {
         x: 50,
         y: 50,
         size: 24,
+        isDragging: false,
       });
     };
 
@@ -349,12 +370,13 @@ export default {
     };
 
     const handleClose = () => {
-      emit('close');
+      emit('update:isOpen', false);
     };
 
     const handleSave = () => {
-      const editedImageData = canvas.value.toDataURL();
-      emit('save', editedImageData);
+      const editedImageData = canvas.value.toDataURL()
+      emit('save', editedImageData)
+      handleClose()
     };
 
     onMounted(async () => {
@@ -520,6 +542,22 @@ canvas {
 
 .actions button:first-child {
   background-color: #6c757d;
+}
+
+.modal-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  margin: 0 1rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.25rem;
+  background: #fff;
 }
 </style>
 

@@ -1,10 +1,10 @@
-import VueImageEditor from './components/VueImageEditor.vue';
+import VueImageEditor from './components/VueImageEditor.vue'
 
-export { VueImageEditor };
+export { VueImageEditor }
 
 export default {
   install: (app) => {
-    app.component('VueImageEditor', VueImageEditor);
+    app.component('VueImageEditor', VueImageEditor)
   }
-};
+}
 
