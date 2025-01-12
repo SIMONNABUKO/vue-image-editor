@@ -1,15 +1,20 @@
 <template>
   <vue-final-modal
-    :modelValue="isOpen"
-    @update:modelValue="$emit('update:isOpen', $event)"
+    v-model="isOpenLocal"
     classes="modal-container"
     content-class="modal-content"
+    :esc-to-close="true"
+    :click-to-close="false"
+    :lock-scroll="true"
+    :hide-overlay="false"
+    overlay-transition="vfm-fade"
+    transition="vfm-fade"
   >
     <div class="vue-image-editor">
       <div class="editor-container">
         <div class="toolbar">
           <button
-            v-for="tool in availableTools"
+            v-for="tool in tools"
             :key="tool.name"
             @click="selectTool(tool.name)"
             :class="{ active: currentTool === tool.name }"
@@ -28,48 +33,48 @@
             @touchmove="draw"
             @touchend="stopDrawing"
           ></canvas>
-        <div
-          v-if="showBlurFrame"
-          ref="blurFrame"
-          class="blur-frame"
-          :style="blurFrameStyle"
-          @mousedown="startFrameDrag"
-          @touchstart="startFrameDrag"
-        >
           <div
-            v-for="handle in resizeHandles"
-            :key="handle.position"
-            class="resize-handle"
-            :style="handle.style"
-            @mousedown.stop="startResize(handle.position)"
-            @touchstart.stop="startResize(handle.position)"
-          ></div>
-        </div>
-        <div
-          v-for="(textItem, index) in textItems"
-          :key="index"
-          class="text-item"
-          :style="getTextItemStyle(textItem)"
-          @mousedown="startTextDrag(index, $event)"
-          @touchstart="startTextDrag(index, $event)"
-        >
-          <div :style="{ color: textItem.color, fontSize: `${textItem.size}px` }">
-            {{ textItem.text }}
+            v-if="showBlurFrame"
+            ref="blurFrame"
+            class="blur-frame"
+            :style="blurFrameStyle"
+            @mousedown="startFrameDrag"
+            @touchstart="startFrameDrag"
+          >
+            <div
+              v-for="handle in resizeHandles"
+              :key="handle.position"
+              class="resize-handle"
+              :style="handle.style"
+              @mousedown.stop="startResize(handle.position)"
+              @touchstart.stop="startResize(handle.position)"
+            ></div>
           </div>
-          <button @click="editText(index)" class="edit-button">Edit</button>
-          <button @click="deleteText(index)" class="delete-button">Delete</button>
-        </div>
-        <div
-          v-for="(emojiItem, index) in emojiItems"
-          :key="index"
-          class="emoji-item"
-          :style="getEmojiItemStyle(emojiItem)"
-          @mousedown="startEmojiDrag(index, $event)"
-          @touchstart="startEmojiDrag(index, $event)"
-        >
-          {{ emojiItem.emoji }}
-          <button @click="deleteEmoji(index)" class="delete-button">Delete</button>
-        </div>
+          <div
+            v-for="(textItem, index) in textItems"
+            :key="index"
+            class="text-item"
+            :style="getTextItemStyle(textItem)"
+            @mousedown="startTextDrag(index, $event)"
+            @touchstart="startTextDrag(index, $event)"
+          >
+            <div :style="{ color: textItem.color, fontSize: `${textItem.size}px` }">
+              {{ textItem.text }}
+            </div>
+            <button @click="editText(index)" class="edit-button">Edit</button>
+            <button @click="deleteText(index)" class="delete-button">Delete</button>
+          </div>
+          <div
+            v-for="(emojiItem, index) in emojiItems"
+            :key="index"
+            class="emoji-item"
+            :style="getEmojiItemStyle(emojiItem)"
+            @mousedown="startEmojiDrag(index, $event)"
+            @touchstart="startEmojiDrag(index, $event)"
+          >
+            {{ emojiItem.emoji }}
+            <button @click="deleteEmoji(index)" class="delete-button">Delete</button>
+          </div>
         </div>
         <div class="tool-options" v-if="showToolOptions">
           <div v-if="currentTool === 'text'">
@@ -101,10 +106,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { VueFinalModal } from 'vue-final-modal'
-import EmojiPicker from './EmojiPicker.vue';
-import { initCanvas, applyBlurEffect, applyPixelateEffect, getResizeHandles, handleResize } from '../utils/imageEditorUtils';
+import EmojiPicker from './EmojiPicker.vue'
+import { initCanvas, applyBlurEffect, applyPixelateEffect } from '../utils/imageEditorUtils'
 
 export default {
   name: 'VueImageEditor',
@@ -121,169 +126,187 @@ export default {
       type: String,
       required: true,
     },
-    tools: {
-      type: Array,
-      default: () => ['blur', 'pixelate', 'text', 'emoji'],
-    },
   },
   emits: ['update:isOpen', 'save'],
   setup(props, { emit }) {
-    const canvas = ref(null);
-    const ctx = ref(null);
-    const canvasContainer = ref(null);
-    const blurFrame = ref(null);
-    const originalImage = ref(null);
+    const canvas = ref(null)
+    const ctx = ref(null)
+    const canvasContainer = ref(null)
+    const originalImage = ref(null)
+    const isDrawing = ref(false)
+    const currentTool = ref('blur')
+    const showToolOptions = ref(false)
+    const textInput = ref('')
+    const textColor = ref('#ffffff')
+    const textSize = ref(24)
+    const effectIntensity = ref(5)
+    const showBlurFrame = ref(false)
+    const isDragging = ref(false)
+    const isResizing = ref(false)
+    const currentResizeHandle = ref(null)
+    const framePosition = ref({ x: 0, y: 0 })
+    const frameSize = ref({ width: 100, height: 100 })
+    const dragStart = ref({ x: 0, y: 0 })
+    const textItems = ref([])
+    const emojiItems = ref([])
 
-    const currentTool = ref('blur');
-    const showToolOptions = ref(false);
-    const showBlurFrame = ref(false);
-    const isDrawing = ref(false);
-    const isDragging = ref(false);
-    const isResizing = ref(false);
-    const currentResizeHandle = ref(null);
+    const isOpenLocal = computed({
+      get: () => props.isOpen,
+      set: (value) => emit('update:isOpen', value)
+    })
 
-    const textInput = ref('');
-    const textColor = ref('#ffffff');
-    const textSize = ref(24);
-    const effectIntensity = ref(5);
+    const tools = [
+      { name: 'blur', label: 'Blur' },
+      { name: 'pixelate', label: 'Pixelate' },
+      { name: 'text', label: 'Text' },
+      { name: 'emoji', label: 'Emoji' },
+    ]
 
-    const framePosition = ref({ x: 0, y: 0 });
-    const frameSize = ref({ width: 100, height: 100 });
-    const dragStart = ref({ x: 0, y: 0 });
-
-    const textItems = ref([]);
-    const emojiItems = ref([]);
-
-    const availableTools = computed(() => {
-      const allTools = [
-        { name: 'blur', label: 'Blur' },
-        { name: 'pixelate', label: 'Pixelate' },
-        { name: 'text', label: 'Text' },
-        { name: 'emoji', label: 'Emoji' },
-      ];
-      return allTools.filter(tool => props.tools.includes(tool.name));
-    });
-
-    const resizeHandles = getResizeHandles();
+    const resizeHandles = [
+      { position: 'nw', style: { top: '-5px', left: '-5px', cursor: 'nwse-resize' } },
+      { position: 'ne', style: { top: '-5px', right: '-5px', cursor: 'nesw-resize' } },
+      { position: 'sw', style: { bottom: '-5px', left: '-5px', cursor: 'nesw-resize' } },
+      { position: 'se', style: { bottom: '-5px', right: '-5px', cursor: 'nwse-resize' } },
+    ]
 
     const blurFrameStyle = computed(() => ({
       left: `${framePosition.value.x}px`,
       top: `${framePosition.value.y}px`,
       width: `${frameSize.value.width}px`,
       height: `${frameSize.value.height}px`,
-    }));
+    }))
 
     const getTextItemStyle = (textItem) => ({
       left: `${textItem.x}px`,
       top: `${textItem.y}px`,
-    });
+    })
 
     const getEmojiItemStyle = (emojiItem) => ({
       left: `${emojiItem.x}px`,
       top: `${emojiItem.y}px`,
       fontSize: `${emojiItem.size}px`,
-    });
+    })
 
     const initCanvas = async () => {
-      ctx.value = await initCanvas(canvas.value, canvasContainer.value, props.imageUrl);
-      originalImage.value = await new Promise(resolve => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.src = props.imageUrl;
-      });
-    };
+      originalImage.value = new Image()
+      originalImage.value.src = props.imageUrl
+      await new Promise(resolve => { originalImage.value.onload = resolve })
+      canvas.value.width = originalImage.value.width
+      canvas.value.height = originalImage.value.height
+      ctx.value = canvas.value.getContext('2d')
+      ctx.value.drawImage(originalImage.value, 0, 0, canvas.value.width, canvas.value.height)
+
+    }
 
     const selectTool = (tool) => {
-      currentTool.value = tool;
-      showToolOptions.value = true;
+      currentTool.value = tool
+      showToolOptions.value = true
       if (tool === 'blur' || tool === 'pixelate') {
-        showBlurFrame.value = true;
+        showBlurFrame.value = true
       } else {
-        showBlurFrame.value = false;
+        showBlurFrame.value = false
       }
-    };
+    }
 
     const startDrawing = (event) => {
-      isDrawing.value = true;
-      draw(event);
-    };
+      isDrawing.value = true
+      draw(event)
+    }
 
     const draw = (event) => {
-      if (!isDrawing.value) return;
+      if (!isDrawing.value) return
 
-      const rect = canvas.value.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
+      const rect = canvas.value.getBoundingClientRect()
+      const x = event.clientX - rect.left
+      const y = event.clientY - rect.top
 
       if (currentTool.value === 'blur' || currentTool.value === 'pixelate') {
-        framePosition.value = { x, y };
-        frameSize.value = { width: 100, height: 100 };
+        framePosition.value = { x, y }
+        frameSize.value = { width: 100, height: 100 }
       }
-    };
+    }
 
     const stopDrawing = () => {
-      isDrawing.value = false;
-      if (currentTool.value === 'blur' || currentTool.value === 'pixelate') {
-        applyEffect();
-      }
-    };
+      isDrawing.value = false
+    }
 
     const startFrameDrag = (event) => {
-      isDragging.value = true;
-      const rect = canvas.value.getBoundingClientRect();
+      isDragging.value = true
+      const rect = canvas.value.getBoundingClientRect()
       dragStart.value = {
         x: event.clientX - rect.left - framePosition.value.x,
         y: event.clientY - rect.top - framePosition.value.y,
-      };
-    };
+      }
+    }
 
     const dragFrame = (event) => {
-      if (!isDragging.value) return;
+      if (!isDragging.value) return
 
-      const rect = canvas.value.getBoundingClientRect();
+      const rect = canvas.value.getBoundingClientRect()
       framePosition.value = {
         x: event.clientX - rect.left - dragStart.value.x,
         y: event.clientY - rect.top - dragStart.value.y,
-      };
-    };
+      }
+    }
 
     const stopFrameDrag = () => {
-      isDragging.value = false;
-      applyEffect();
-    };
+      isDragging.value = false
+    }
 
     const startResize = (handle) => {
-      isResizing.value = true;
-      currentResizeHandle.value = handle;
-    };
+      isResizing.value = true
+      currentResizeHandle.value = handle
+    }
 
     const resize = (event) => {
-      if (!isResizing.value) return;
+      if (!isResizing.value) return
 
-      const rect = canvas.value.getBoundingClientRect();
-      const mouseX = event.clientX - rect.left;
-      const mouseY = event.clientY - rect.top;
+      const rect = canvas.value.getBoundingClientRect()
+      const mouseX = event.clientX - rect.left
+      const mouseY = event.clientY - rect.top
 
-      const result = handleResize(currentResizeHandle.value, framePosition.value, frameSize.value, mouseX, mouseY);
-      framePosition.value = result.framePosition;
-      frameSize.value = result.frameSize;
-    };
+      switch (currentResizeHandle.value) {
+        case 'nw':
+          frameSize.value.width += framePosition.value.x - mouseX
+          frameSize.value.height += framePosition.value.y - mouseY
+          framePosition.value.x = mouseX
+          framePosition.value.y = mouseY
+          break
+        case 'ne':
+          frameSize.value.width = mouseX - framePosition.value.x
+          frameSize.value.height += framePosition.value.y - mouseY
+          framePosition.value.y = mouseY
+          break
+        case 'sw':
+          frameSize.value.width += framePosition.value.x - mouseX
+          frameSize.value.height = mouseY - framePosition.value.y
+          framePosition.value.x = mouseX
+          break
+        case 'se':
+          frameSize.value.width = mouseX - framePosition.value.x
+          frameSize.value.height = mouseY - framePosition.value.y
+          break
+      }
+    }
 
     const stopResize = () => {
-      isResizing.value = false;
-      currentResizeHandle.value = null;
-      applyEffect();
-    };
+      isResizing.value = false
+      currentResizeHandle.value = null
+    }
 
     const applyEffect = () => {
-      ctx.value.drawImage(originalImage.value, 0, 0, canvas.value.width, canvas.value.height);
+      ctx.value.drawImage(originalImage.value, 0, 0, canvas.value.width, canvas.value.height)
 
       if (currentTool.value === 'blur') {
-        applyBlurEffect(ctx.value, canvas.value, framePosition.value, frameSize.value, effectIntensity.value);
+        applyBlurEffect(ctx.value, canvas.value, framePosition.value, frameSize.value, effectIntensity.value)
       } else if (currentTool.value === 'pixelate') {
-        applyPixelateEffect(ctx.value, canvas.value, framePosition.value, frameSize.value, effectIntensity.value);
+        applyPixelateEffect(ctx.value, framePosition.value, frameSize.value, effectIntensity.value)
       }
-    };
+
+      // Redraw text and emoji items
+      drawTextItems()
+      drawEmojiItems()
+    }
 
     const addText = () => {
       if (textInput.value) {
@@ -293,45 +316,44 @@ export default {
           y: 50,
           color: textColor.value,
           size: textSize.value,
-          isDragging: false,
-        });
-        textInput.value = '';
+        })
+        textInput.value = ''
       }
-    };
+    }
 
     const startTextDrag = (index, event) => {
-      const item = textItems.value[index];
-      item.isDragging = true;
-      item.dragStartX = event.clientX - item.x;
-      item.dragStartY = event.clientY - item.y;
-    };
+      const item = textItems.value[index]
+      item.isDragging = true
+      item.dragStartX = event.clientX - item.x
+      item.dragStartY = event.clientY - item.y
+    }
 
     const dragText = (event) => {
       textItems.value.forEach((item) => {
         if (item.isDragging) {
-          item.x = event.clientX - item.dragStartX;
-          item.y = event.clientY - item.dragStartY;
+          item.x = event.clientX - item.dragStartX
+          item.y = event.clientY - item.dragStartY
         }
-      });
-    };
+      })
+    }
 
     const stopTextDrag = () => {
       textItems.value.forEach((item) => {
-        item.isDragging = false;
-      });
-    };
+        item.isDragging = false
+      })
+    }
 
     const editText = (index) => {
-      const item = textItems.value[index];
-      textInput.value = item.text;
-      textColor.value = item.color;
-      textSize.value = item.size;
-      textItems.value.splice(index, 1);
-    };
+      const item = textItems.value[index]
+      textInput.value = item.text
+      textColor.value = item.color
+      textSize.value = item.size
+      textItems.value.splice(index, 1)
+    }
 
     const deleteText = (index) => {
-      textItems.value.splice(index, 1);
-    };
+      textItems.value.splice(index, 1)
+    }
 
     const addEmoji = (emoji) => {
       emojiItems.value.push({
@@ -339,68 +361,85 @@ export default {
         x: 50,
         y: 50,
         size: 24,
-        isDragging: false,
-      });
-    };
+      })
+    }
 
     const startEmojiDrag = (index, event) => {
-      const item = emojiItems.value[index];
-      item.isDragging = true;
-      item.dragStartX = event.clientX - item.x;
-      item.dragStartY = event.clientY - item.y;
-    };
+      const item = emojiItems.value[index]
+      item.isDragging = true
+      item.dragStartX = event.clientX - item.x
+      item.dragStartY = event.clientY - item.y
+    }
 
     const dragEmoji = (event) => {
       emojiItems.value.forEach((item) => {
         if (item.isDragging) {
-          item.x = event.clientX - item.dragStartX;
-          item.y = event.clientY - item.dragStartY;
+          item.x = event.clientX - item.dragStartX
+          item.y = event.clientY - item.dragStartY
         }
-      });
-    };
+      })
+    }
 
     const stopEmojiDrag = () => {
       emojiItems.value.forEach((item) => {
-        item.isDragging = false;
-      });
-    };
+        item.isDragging = false
+      })
+    }
 
     const deleteEmoji = (index) => {
-      emojiItems.value.splice(index, 1);
-    };
+      emojiItems.value.splice(index, 1)
+    }
+
+    const drawTextItems = () => {
+      textItems.value.forEach(item => {
+        ctx.value.font = `${item.size}px sans-serif`
+        ctx.value.fillStyle = item.color
+        ctx.value.fillText(item.text, item.x, item.y)
+      })
+    }
+
+    const drawEmojiItems = () => {
+      emojiItems.value.forEach(item => {
+        ctx.value.font = `${item.size}px sans-serif`
+        ctx.value.textBaseline = 'middle'
+        ctx.value.textAlign = 'center'
+        ctx.value.fillText(item.emoji, item.x + item.size / 2, item.y + item.size / 2)
+      })
+    }
+
 
     const handleClose = () => {
-      emit('update:isOpen', false);
-    };
+      emit('update:isOpen', false)
+    }
 
     const handleSave = () => {
       const editedImageData = canvas.value.toDataURL()
       emit('save', editedImageData)
       handleClose()
-    };
+    }
 
     onMounted(async () => {
       if (props.isOpen) {
-        await initCanvas();
+        await initCanvas()
       }
-    });
+    })
 
     watch(() => props.isOpen, async (newVal) => {
       if (newVal) {
-        await initCanvas();
+        await nextTick()
+        await initCanvas()
       }
-    });
+    })
 
     watch(() => props.imageUrl, async () => {
       if (props.isOpen) {
-        await initCanvas();
+        await initCanvas()
       }
-    });
+    })
 
     return {
       canvas,
       canvasContainer,
-      blurFrame,
       currentTool,
       showToolOptions,
       showBlurFrame,
@@ -412,11 +451,12 @@ export default {
       frameSize,
       textItems,
       emojiItems,
-      availableTools,
+      tools,
       resizeHandles,
       blurFrameStyle,
       getTextItemStyle,
       getEmojiItemStyle,
+      isOpenLocal,
       selectTool,
       startDrawing,
       draw,
@@ -441,33 +481,28 @@ export default {
       deleteEmoji,
       handleClose,
       handleSave,
-    };
+      drawTextItems,
+      drawEmojiItems
+    }
   },
-};
+}
 </script>
 
 <style scoped>
 .vue-image-editor {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
+  width: 100vw;
+  height: 100vh;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
+  flex-direction: column;
+  background-color: #1a1a1a;
 }
 
 .editor-container {
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  max-width: 90%;
-  max-height: 90%;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  padding: 20px;
+  overflow: hidden;
 }
 
 .toolbar {
@@ -548,16 +583,17 @@ canvas {
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
+  height: 100%;
 }
 
 .modal-content {
-  display: flex;
-  flex-direction: column;
-  margin: 0 1rem;
-  padding: 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.25rem;
-  background: #fff;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #1a1a1a;
+  color: white;
 }
 </style>
 
