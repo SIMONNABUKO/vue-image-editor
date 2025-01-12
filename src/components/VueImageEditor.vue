@@ -1,5 +1,5 @@
 <template>
-  <vue-final-modal
+  <VueFinalModal
     v-model="isOpenLocal"
     classes="modal-container"
     content-class="modal-content"
@@ -102,14 +102,13 @@
         </div>
       </div>
     </div>
-  </vue-final-modal>
+  </VueFinalModal>
 </template>
 
 <script>
 import { ref, computed, onMounted, watch, nextTick, onUnmounted } from 'vue'
 import { VueFinalModal } from 'vue-final-modal'
 import EmojiPicker from './EmojiPicker.vue'
-//import { initCanvas, applyBlurEffect, applyPixelateEffect } from '../utils/imageEditorUtils'
 
 export default {
   name: 'VueImageEditor',
