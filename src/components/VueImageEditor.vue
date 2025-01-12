@@ -106,10 +106,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, onUnmounted } from 'vue'
 import { VueFinalModal } from 'vue-final-modal'
 import EmojiPicker from './EmojiPicker.vue'
-import { initCanvas, applyBlurEffect, applyPixelateEffect } from '../utils/imageEditorUtils'
+//import { initCanvas, applyBlurEffect, applyPixelateEffect } from '../utils/imageEditorUtils'
 
 export default {
   name: 'VueImageEditor',
@@ -149,6 +149,8 @@ export default {
     const dragStart = ref({ x: 0, y: 0 })
     const textItems = ref([])
     const emojiItems = ref([])
+    const isInitialized = ref(false)
+    const isLoading = ref(false)
 
     const isOpenLocal = computed({
       get: () => props.isOpen,
@@ -188,20 +190,41 @@ export default {
     })
 
     const initCanvasAndImage = async () => {
-      if (!canvas.value || !props.imageUrl) return
-
-      return new Promise((resolve) => {
+      if (!canvas.value || !props.imageUrl || isLoading.value) return
+      
+      isLoading.value = true
+      
+      try {
         const img = new Image()
-        img.onload = () => {
-          canvas.value.width = img.width
-          canvas.value.height = img.height
-          ctx.value = canvas.value.getContext('2d')
-          ctx.value.drawImage(img, 0, 0, img.width, img.height)
-          originalImage.value = img
-          resolve()
-        }
-        img.src = props.imageUrl
-      })
+        
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            try {
+              if (!canvas.value) return reject(new Error('Canvas not found'))
+              
+              canvas.value.width = img.width
+              canvas.value.height = img.height
+              ctx.value = canvas.value.getContext('2d')
+              
+              if (!ctx.value) return reject(new Error('Could not get canvas context'))
+              
+              ctx.value.drawImage(img, 0, 0, img.width, img.height)
+              originalImage.value = img
+              isInitialized.value = true
+              resolve()
+            } catch (err) {
+              reject(err)
+            }
+          }
+          
+          img.onerror = () => reject(new Error('Failed to load image'))
+          img.src = props.imageUrl
+        })
+      } catch (error) {
+        console.error('Failed to initialize canvas:', error)
+      } finally {
+        isLoading.value = false
+      }
     }
 
     const selectTool = (tool) => {
@@ -297,14 +320,53 @@ export default {
     }
 
     const applyEffect = () => {
-      if (!ctx.value || !originalImage.value) return
+      if (!ctx.value || !originalImage.value || !canvas.value) return
 
       ctx.value.drawImage(originalImage.value, 0, 0, canvas.value.width, canvas.value.height)
 
       if (currentTool.value === 'blur') {
-        applyBlurEffect(ctx.value, canvas.value, framePosition.value, frameSize.value, effectIntensity.value)
+        const intensity = effectIntensity.value || 5
+        ctx.value.filter = `blur(${intensity}px)`
+        ctx.value.drawImage(
+          canvas.value,
+          framePosition.value.x,
+          framePosition.value.y,
+          frameSize.value.width,
+          frameSize.value.height,
+          framePosition.value.x,
+          framePosition.value.y,
+          frameSize.value.width,
+          frameSize.value.height
+        )
+        ctx.value.filter = 'none'
       } else if (currentTool.value === 'pixelate') {
-        applyPixelateEffect(ctx.value, framePosition.value, frameSize.value, effectIntensity.value)
+        const pixelSize = effectIntensity.value || 5
+        const imageData = ctx.value.getImageData(
+          framePosition.value.x,
+          framePosition.value.y,
+          frameSize.value.width,
+          frameSize.value.height
+        )
+
+        for (let y = 0; y < frameSize.value.height; y += pixelSize) {
+          for (let x = 0; x < frameSize.value.width; x += pixelSize) {
+            const i = (y * frameSize.value.width + x) * 4
+            const r = imageData.data[i]
+            const g = imageData.data[i + 1]
+            const b = imageData.data[i + 2]
+
+            for (let py = 0; py < pixelSize && y + py < frameSize.value.height; py++) {
+              for (let px = 0; px < pixelSize && x + px < frameSize.value.width; px++) {
+                const pixelIndex = ((y + py) * frameSize.value.width + (x + px)) * 4
+                imageData.data[pixelIndex] = r
+                imageData.data[pixelIndex + 1] = g
+                imageData.data[pixelIndex + 2] = b
+              }
+            }
+          }
+        }
+
+        ctx.value.putImageData(imageData, framePosition.value.x, framePosition.value.y)
       }
 
       drawTextItems()
@@ -429,15 +491,28 @@ export default {
     })
 
     watch(() => props.isOpen, async (newVal) => {
-      if (newVal) {
+      if (newVal && !isInitialized.value) {
         await nextTick()
+        await initCanvasAndImage()
+      } else if (!newVal) {
+        isInitialized.value = false
+      }
+    })
+
+    watch(() => props.imageUrl, async (newVal, oldVal) => {
+      if (newVal !== oldVal && props.isOpen && !isLoading.value) {
+        isInitialized.value = false
         await initCanvasAndImage()
       }
     })
 
-    watch(() => props.imageUrl, async () => {
-      if (props.isOpen) {
-        await initCanvasAndImage()
+    onUnmounted(() => {
+      if (originalImage.value) {
+        originalImage.value.src = ''
+        originalImage.value = null
+      }
+      if (ctx.value) {
+        ctx.value = null
       }
     })
 
@@ -485,6 +560,8 @@ export default {
       deleteEmoji,
       handleClose,
       handleSave,
+      isLoading,
+      isInitialized,
     }
   },
 }
