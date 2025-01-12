@@ -9,7 +9,7 @@
         "import": "./dist/vue-image-editor.es.js",
         "require": "./dist/vue-image-editor.umd.js"
       },
-      "./dist/style.css": "./dist/style.css"
+      "./style": "./dist/style.css"
     },
     "files": [
       "dist"
@@ -17,17 +17,6 @@
     "scripts": {
       "build": "vite build"
     },
-    "keywords": [
-      "vue",
-      "image",
-      "editor",
-      "blur",
-      "pixelate",
-      "text",
-      "emoji"
-    ],
-    "author": "Your Name",
-    "license": "MIT",
     "peerDependencies": {
       "vue": "^3.0.0"
     },
