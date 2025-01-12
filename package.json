@@ -1,0 +1,34 @@
+{
+    "name": "vue-image-editor",
+    "version": "1.0.0",
+    "description": "A comprehensive Vue.js image editor component with blur, pixelate, text, and emoji features",
+    "main": "dist/vue-image-editor.umd.js",
+    "module": "dist/vue-image-editor.es.js",
+    "files": [
+      "dist"
+    ],
+    "scripts": {
+      "build": "vite build"
+    },
+    "keywords": [
+      "vue",
+      "image",
+      "editor",
+      "blur",
+      "pixelate",
+      "text",
+      "emoji"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "peerDependencies": {
+      "vue": "^3.0.0"
+    },
+    "devDependencies": {
+      "@vitejs/plugin-vue": "^4.0.0",
+      "vite": "^4.0.0",
+      "vue": "^3.0.0"
+    }
+  }
+  
+  
