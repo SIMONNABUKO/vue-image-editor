@@ -187,25 +187,27 @@ export default {
       fontSize: `${emojiItem.size}px`,
     })
 
-    const initCanvas = async () => {
-      originalImage.value = new Image()
-      originalImage.value.src = props.imageUrl
-      await new Promise(resolve => { originalImage.value.onload = resolve })
-      canvas.value.width = originalImage.value.width
-      canvas.value.height = originalImage.value.height
-      ctx.value = canvas.value.getContext('2d')
-      ctx.value.drawImage(originalImage.value, 0, 0, canvas.value.width, canvas.value.height)
+    const initCanvasAndImage = async () => {
+      if (!canvas.value || !props.imageUrl) return
 
+      return new Promise((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+          canvas.value.width = img.width
+          canvas.value.height = img.height
+          ctx.value = canvas.value.getContext('2d')
+          ctx.value.drawImage(img, 0, 0, img.width, img.height)
+          originalImage.value = img
+          resolve()
+        }
+        img.src = props.imageUrl
+      })
     }
 
     const selectTool = (tool) => {
       currentTool.value = tool
       showToolOptions.value = true
-      if (tool === 'blur' || tool === 'pixelate') {
-        showBlurFrame.value = true
-      } else {
-        showBlurFrame.value = false
-      }
+      showBlurFrame.value = tool === 'blur' || tool === 'pixelate'
     }
 
     const startDrawing = (event) => {
@@ -295,6 +297,8 @@ export default {
     }
 
     const applyEffect = () => {
+      if (!ctx.value || !originalImage.value) return
+
       ctx.value.drawImage(originalImage.value, 0, 0, canvas.value.width, canvas.value.height)
 
       if (currentTool.value === 'blur') {
@@ -303,7 +307,6 @@ export default {
         applyPixelateEffect(ctx.value, framePosition.value, frameSize.value, effectIntensity.value)
       }
 
-      // Redraw text and emoji items
       drawTextItems()
       drawEmojiItems()
     }
@@ -391,6 +394,7 @@ export default {
     }
 
     const drawTextItems = () => {
+      if (!ctx.value) return
       textItems.value.forEach(item => {
         ctx.value.font = `${item.size}px sans-serif`
         ctx.value.fillStyle = item.color
@@ -399,6 +403,7 @@ export default {
     }
 
     const drawEmojiItems = () => {
+      if (!ctx.value) return
       emojiItems.value.forEach(item => {
         ctx.value.font = `${item.size}px sans-serif`
         ctx.value.textBaseline = 'middle'
@@ -406,7 +411,6 @@ export default {
         ctx.value.fillText(item.emoji, item.x + item.size / 2, item.y + item.size / 2)
       })
     }
-
 
     const handleClose = () => {
       emit('update:isOpen', false)
@@ -420,20 +424,20 @@ export default {
 
     onMounted(async () => {
       if (props.isOpen) {
-        await initCanvas()
+        await initCanvasAndImage()
       }
     })
 
     watch(() => props.isOpen, async (newVal) => {
       if (newVal) {
         await nextTick()
-        await initCanvas()
+        await initCanvasAndImage()
       }
     })
 
     watch(() => props.imageUrl, async () => {
       if (props.isOpen) {
-        await initCanvas()
+        await initCanvasAndImage()
       }
     })
 
@@ -481,8 +485,6 @@ export default {
       deleteEmoji,
       handleClose,
       handleSave,
-      drawTextItems,
-      drawEmojiItems
     }
   },
 }
