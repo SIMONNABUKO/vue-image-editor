@@ -499,7 +499,8 @@ export default {
     }, { immediate: true })
 
     watch(() => props.imageUrl, async (newVal, oldVal) => {
-      if (newVal !== oldVal && props.isOpen && !isLoading.value && !isInitialized.value) {
+      if (newVal !== oldVal && props.isOpen && !isLoading.value) {
+        isInitialized.value = false
         await initCanvasAndImage()
       }
     })

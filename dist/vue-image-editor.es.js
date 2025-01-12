@@ -1510,7 +1510,7 @@ const jn = {
     }), Y(() => a.isOpen, async (r, o) => {
       r && !L.value && !B.value ? (await he(), await te()) : r || (L.value = !1);
     }, { immediate: !0 }), Y(() => a.imageUrl, async (r, o) => {
-      r !== o && a.isOpen && !B.value && !L.value && await te();
+      r !== o && a.isOpen && !B.value && (L.value = !1, await te());
     }), Nt(() => {
       d.value && (d.value.src = "", d.value = null), t.value && (t.value = null);
     }), {
@@ -1707,7 +1707,7 @@ function ea(a, e, n, t, i, d) {
     _: 1
   }, 8, ["modelValue"]);
 }
-const ta = /* @__PURE__ */ At(jn, [["render", ea], ["__scopeId", "data-v-da3dd29c"]]), aa = {
+const ta = /* @__PURE__ */ At(jn, [["render", ea], ["__scopeId", "data-v-aa8ca220"]]), aa = {
   install: (a) => {
     a.component("VueFinalModal", kt), a.component("VueImageEditor", ta);
   }
